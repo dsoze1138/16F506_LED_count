@@ -42,7 +42,7 @@
 ;
     PROCESSOR   16F506
     PAGEWIDTH   132
-    RADIX       dec
+    RADIX       DEC
 
 ; PIC16F506 Configuration Bit Settings
 
@@ -73,9 +73,16 @@ Delta_t:    DS      1
     global  SW_BounceCount,SW_FLAGS
 SW_BounceCount: DS  1
 SW_FLAGS:       DS  1
-#define SW_FLAGS_STABLE_POSITION 0
-#define SW_FLAGS_CHANGE_POSITION 1
-#define SW_FLAGS_SAMPLE_POSITION 3
+SW_TEMP:        DS  1
+#define SW_FLAGS_SW2_STABLE_POSITION 0
+#define SW_FLAGS_SW1_STABLE_POSITION 1
+#define SW_FLAGS_SW2_SAMPLE_POSITION 2
+#define SW_FLAGS_SW1_SAMPLE_POSITION 3
+#define SW_FLAGS_SW2_CHANGE_POSITION 4
+#define SW_FLAGS_SW1_CHANGE_POSITION 5
+#define SW_FLAGS_SAMPLE_MASK ((1<<SW_FLAGS_SW1_SAMPLE_POSITION)|(1<<SW_FLAGS_SW2_SAMPLE_POSITION))
+#define SW_FLAGS_STABLE_MASK ((1<<SW_FLAGS_SW1_STABLE_POSITION)|(1<<SW_FLAGS_SW2_STABLE_POSITION))
+#define SW_FLAGS_CHANGE_MASK ((1<<SW_FLAGS_SW1_CHANGE_POSITION)|(1<<SW_FLAGS_SW2_CHANGE_POSITION))
 #define SW_BOUNCE_TIME (20)
 
     global  LED_Segments
@@ -103,13 +110,15 @@ Start:
     bcf     ADCON0,ADCON0_ANS0_POSITION     ; make PORTB digital I/O
     bcf     ADCON0,ADCON0_ANS1_POSITION     ; make PORTB digital I/O
 
-    movlw   0b001000    ; PORTB, bit 3 is always an input.
-    tris    PORTB       ; PORTB, bits 5,4,2,1,0 are outputs.
+    movlw   0b00001100  ; PORTB, bits 3,2 are inputs.
+    nop     ; MPLABX simulator bug workaround
+    tris    PORTB       ; PORTB, bits 5,4,1,0 are outputs.
 
-    clrw
+    movlw   0b00000000
+    nop     ; MPLABX simulator bug workaround
     tris    PORTC       ; PORTC, bits 5,4,3,2,1,0 are outputs.
 
-    movlw   0b11000011  ; TIMER0 clock Fosc/4, prescale 1:16, counts at 125KHz with 8MHz system oscillator
+    movlw   0xC3        ; TIMER0 clock Fosc/4, prescale 1:16, counts at 125KHz with 8MHz system oscillator
     option
 
     clrf    PORTB
@@ -119,7 +128,7 @@ Start:
     clrf    Counter
     clrf    SW_BounceCount
     movf    PORTB,W
-    andlw   PORTB_RB3_MASK
+    andlw   SW_FLAGS_SAMPLE_MASK
     movwf   SW_FLAGS
 
     goto    AppLoop
@@ -162,7 +171,7 @@ Delay_loop:
 SW_Poll:
     movf    PORTB,W
     xorwf   SW_FLAGS,W
-    andlw   PORTB_RB3_MASK
+    andlw   SW_FLAGS_SAMPLE_MASK
     btfsc   STATUS,STATUS_Z_POSITION ; Skip when SW changed
     goto    SW_Same
     xorwf   SW_FLAGS,F      ; Update SW sample
@@ -179,13 +188,17 @@ SW_Same:
 
 SW_Stable:
     movf    SW_FLAGS,W
-    btfsc   SW_FLAGS,SW_FLAGS_SAMPLE_POSITION
-    xorlw   (1<<SW_FLAGS_STABLE_POSITION)
-    andlw   (1<<SW_FLAGS_STABLE_POSITION)
+    btfsc   SW_FLAGS,SW_FLAGS_SW1_SAMPLE_POSITION
+    xorlw   (1<<SW_FLAGS_SW1_STABLE_POSITION)
+    btfsc   SW_FLAGS,SW_FLAGS_SW2_SAMPLE_POSITION
+    xorlw   (1<<SW_FLAGS_SW2_STABLE_POSITION)
+    andlw   SW_FLAGS_STABLE_MASK
     btfsc   STATUS,STATUS_Z_POSITION
     retlw   0
-    bsf     SW_FLAGS,SW_FLAGS_CHANGE_POSITION
     xorwf   SW_FLAGS,F
+    movwf   SW_TEMP
+    swapf   SW_TEMP,W
+    iorwf   SW_FLAGS,F
     retlw   0
 ;
 ; Function: LookupSegemnts
@@ -252,23 +265,43 @@ Show_digit:
 
     retlw   0
 ;
-; Do something when SW is pressed
+; Do something when SW1 is pressed
 ;
 ; Returns:  WREG set to zero
 ;
-SW_ChangedToAsserted:
-    incf    Counter,F
+SW1_ChangedToAsserted:
+    movlw   1
+    addwf   Counter,F
     movlw   10
     subwf   Counter,W
     btfsc   STATUS,STATUS_C_POSITION
     clrf    Counter
     retlw   0
 ;
-; Do something when SW is released
+; Do something when SW1 is released
 ;
 ; Returns:  WREG set to zero
 ;
-SW_ChangedToReleased:
+SW1_ChangedToReleased:
+    retlw   0
+;
+; Do something when SW2 is pressed
+;
+; Returns:  WREG set to zero
+;
+SW2_ChangedToAsserted:
+    movlw   -1
+    addwf   Counter,F
+    movlw   9
+    btfss   STATUS,STATUS_C_POSITION
+    movwf   Counter
+    retlw   0
+;
+; Do something when SW2 is released
+;
+; Returns:  WREG set to zero
+;
+SW2_ChangedToReleased:
     retlw   0
 ;
 ; Application loop
@@ -278,14 +311,30 @@ AppLoop:
     call    Delay
     call    SW_Poll
 
-    btfss   SW_FLAGS,SW_FLAGS_CHANGE_POSITION
+    movf    SW_FLAGS,W
+    andlw   SW_FLAGS_CHANGE_MASK
+    btfsc   STATUS,STATUS_Z_POSITION
     goto    AppLoop
-
-    btfss   SW_FLAGS,SW_FLAGS_STABLE_POSITION
-    call    SW_ChangedToAsserted
-    btfsc   SW_FLAGS,SW_FLAGS_STABLE_POSITION
-    call    SW_ChangedToReleased
-    bcf     SW_FLAGS,SW_FLAGS_CHANGE_POSITION
+;
+; Check if SW1 changed
+    btfss   SW_FLAGS,SW_FLAGS_SW1_CHANGE_POSITION
+    goto    CheckSW1_Exit
+    btfss   SW_FLAGS,SW_FLAGS_SW1_STABLE_POSITION
+    call    SW1_ChangedToAsserted
+    btfsc   SW_FLAGS,SW_FLAGS_SW1_STABLE_POSITION
+    call    SW1_ChangedToReleased
+    bcf     SW_FLAGS,SW_FLAGS_SW1_CHANGE_POSITION
+CheckSW1_Exit:
+;
+; Check if SW2 changed
+    btfss   SW_FLAGS,SW_FLAGS_SW2_CHANGE_POSITION
+    goto    CheckSW2_Exit
+    btfss   SW_FLAGS,SW_FLAGS_SW2_STABLE_POSITION
+    call    SW2_ChangedToAsserted
+    btfsc   SW_FLAGS,SW_FLAGS_SW2_STABLE_POSITION
+    call    SW2_ChangedToReleased
+    bcf     SW_FLAGS,SW_FLAGS_SW2_CHANGE_POSITION
+CheckSW2_Exit:
 
     movf    Counter,W
     call    LookupSegemnts

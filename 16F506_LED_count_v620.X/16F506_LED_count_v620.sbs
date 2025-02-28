@@ -1,0 +1,65 @@
+## SCL Builder Setup File: Do not edit!!
+
+## VERSION: MPLAB X
+## FORMAT:  v2.00.01
+## DEVICE:  PIC16F506
+
+## PINREGACTIONS
+cyc
+No Repeat
+--
+&
+## ADVPINREGACTIONS
+--
+&
+--
+COND1
+Any
+
+
+
+0
+cyc
+
+--
+&
+## CLOCK
+&
+## STIMULUSFILE
+&
+## RESPONSEFILE
+&
+## ASYNCH
+Pin
+RB3
+Set High
+
+SW1 - RELEASED
+-1
+--
+Pin
+RB3
+Set Low
+
+SW1 - ASSERTED
+-1
+--
+Pin
+RB2
+Set High
+
+SW2 - RELEASED
+-1
+--
+Pin
+RB2
+Set Low
+
+SW2 - ASSERTED
+-1
+--
+&
+## ADVANCEDSCL
+
+0
+&
