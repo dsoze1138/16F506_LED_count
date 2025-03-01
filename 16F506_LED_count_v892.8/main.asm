@@ -71,7 +71,6 @@ Delta_t:    RES     1
     global  SW_BounceCount,SW_FLAGS
 SW_BounceCount: RES 1
 SW_FLAGS:       RES 1
-SW_TEMP:        RES 1
 #define SW_FLAGS_SW2_STABLE_POSITION 0
 #define SW_FLAGS_SW1_STABLE_POSITION 1
 #define SW_FLAGS_SW2_SAMPLE_POSITION 2
@@ -192,9 +191,9 @@ SW_Stable:
     skpnz
     retlw   0
     xorwf   SW_FLAGS,F
-    movwf   SW_TEMP
-    swapf   SW_TEMP,W
-    iorwf   SW_FLAGS,F
+    swapf   SW_FLAGS,F
+    iorwf   SW_FLAGS,F      ; update changed flags
+    swapf   SW_FLAGS,F
     retlw   0
 ;
 ; Function: LookupSegemnts
