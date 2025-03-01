@@ -14,7 +14,7 @@
 ;
 ;   Example project for the PIC16F506 controller using the MPASM(v5.51) tool chain.
 ;
-;  
+;
 ;                         PIC16F506
 ;               +------------:_:------------+
 ;      GND -> 1 : VDD                   VSS : 14 <- 5v0
@@ -28,7 +28,7 @@
 ;                          DIP-14
 ;
 ; Test hardware see: https://github.com/gooligumelec/Baseline-PIC-training-board/blob/main/Base-mid_dev_inst.pdf
-;  
+;
 ; See: https://forum.microchip.com/s/topic/a5CV400000032DNMAY/t399990
 ;
 ;   This implementation was created from scratch. The Original Posters (OP) code
@@ -102,8 +102,8 @@ Start:
     movwf   OSCCAL                          ; set factory oscillator calibration
     clrf    CM1CON0                         ; make PORTC digital I/O
     clrf    CM2CON0                         ; make PORTC digital I/O
-    bsf     CM1CON0,NOT_C1WU                ; make PORTC digital I/O
-    bsf     CM2CON0,NOT_C2WU                ; make PORTC digital I/O
+    bsf     CM1CON0,        NOT_C1WU        ; make PORTC digital I/O
+    bsf     CM2CON0,        NOT_C2WU        ; make PORTC digital I/O
     bcf     ADCON0,       ANS0              ; make PORTB digital I/O
     bcf     ADCON0,       ANS1              ; make PORTB digital I/O
 
@@ -130,7 +130,7 @@ Start:
 ;
 ; This delay function will spin for 1 to 256 milliseconds.
 ; TIMER0 is used to count elapse time. This is tricky to do
-; with a baseline controller like a PIC16F506 as there are 
+; with a baseline controller like a PIC16F506 as there are
 ; no opcodes that can add or subtract constants from the WREG.
 ;
 ; Input:    WREG (delay 1 to 256 milliseconds)
@@ -151,7 +151,7 @@ Delay_loop:
     movf    Delay_t0,W      ; Find the numer of TIMER0 counts
     subwf   TMR0,W          ; since last sample.
     subwf   Delta_t,W       ; Check if TIMER0 has counted enough.
-    skpnc
+    btfsc   STATUS,       C
     goto    Delay_loop      ; Loop if not long enough.
     movf    Delta_t,W
     addwf   Delay_t0,F      ; Adjust for next delay loop.
@@ -167,7 +167,7 @@ SW_Poll:
     movf    PORTB,W
     xorwf   SW_FLAGS,W
     andlw   SW_FLAGS_SAMPLE_MASK
-    skpnz                   ; Skip when SW changed
+    btfsc   STATUS,       Z          ; Skip when SW changed
     goto    SW_Same
     xorwf   SW_FLAGS,F      ; Update SW sample
     movlw   SW_BOUNCE_TIME
@@ -176,7 +176,7 @@ SW_Poll:
 
 SW_Same:
     movf    SW_BounceCount,F
-    skpnz                   ; skip if SW has not been stable long enough
+    btfsc   STATUS,       Z          ; skip if SW has not been stable long enough
     goto    SW_Stable
     decf    SW_BounceCount,F
     retlw   0
@@ -188,7 +188,7 @@ SW_Stable:
     btfsc   SW_FLAGS,SW_FLAGS_SW2_SAMPLE_POSITION
     xorlw   (1<<SW_FLAGS_SW2_STABLE_POSITION)
     andlw   SW_FLAGS_STABLE_MASK
-    skpnz
+    btfsc   STATUS,       Z
     retlw   0
     xorwf   SW_FLAGS,F
     swapf   SW_FLAGS,F
@@ -205,7 +205,7 @@ SW_Stable:
 LookupSegemnts:
     andlw   0x0F
     addwf   PCL,F
-;             .gfedcba 
+;             .gfedcba
     retlw   B'00111111' ; mask for digit 0
     retlw   B'00000110' ; mask for digit 1
     retlw   B'01011011' ; mask for digit 2
@@ -269,7 +269,7 @@ SW1_ChangedToAsserted:
     addwf   Counter,F
     movlw   10
     subwf   Counter,W
-    skpnc
+    btfsc   STATUS,       C
     clrf    Counter
     retlw   0
 ;
@@ -288,7 +288,7 @@ SW2_ChangedToAsserted:
     movlw   -1
     addwf   Counter,F
     movlw   9
-    skpc
+    btfss   STATUS,       C
     movwf   Counter
     retlw   0
 ;
@@ -308,7 +308,7 @@ AppLoop:
 
     movf    SW_FLAGS,W
     andlw   SW_FLAGS_CHANGE_MASK
-    skpnz
+    btfsc   STATUS,       Z
     goto    AppLoop
 ;
 ; Check if SW1 changed
