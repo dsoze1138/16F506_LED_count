@@ -152,7 +152,7 @@ Delay:
     movlw   TIMER0_COUNTS_IN_ONE_MILLISECOND
     movwf   Delta_t
 Delay_loop:
-    movf    Delay_t0,W      ; Find the numer of TIMER0 counts
+    movf    Delay_t0,W      ; Find the number of TIMER0 counts
     subwf   TMR0,W          ; since last sample.
     subwf   Delta_t,W       ; Check if TIMER0 has counted enough.
     btfsc   STATUS,STATUS_C_POSITION
